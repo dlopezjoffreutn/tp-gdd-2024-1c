@@ -1,6 +1,6 @@
 USE GD1C2024;
-
 GO
+
 -------- Setup --------
 ---- Drop constraints ----
 DECLARE @drop_constraints NVARCHAR(max) = ''
@@ -14,6 +14,7 @@ EXEC sp_executesql @drop_constraints;
 
 GO
 ----
+
 ---- Drop tablas ----
 declare @drop_tablas NVARCHAR(max) = ''
 SELECT
@@ -28,6 +29,7 @@ EXEC sp_executesql @drop_tablas;
 
 GO
 ----
+
 ---- Drop indices ----
 DECLARE @drop_indices NVARCHAR(max) = ''
 SELECT
@@ -45,6 +47,7 @@ EXEC sp_executesql @drop_indices;
 
 GO
 ----
+
 ---- Drop procedures ----
 DECLARE @drop_procedures NVARCHAR(max) = ''
 SELECT
@@ -58,6 +61,7 @@ EXEC sp_executesql @drop_procedures;
 
 GO
 ----
+
 ---- Drop schema ----
 IF EXISTS (
 SELECT
@@ -70,10 +74,12 @@ WHERE
 
 GO
 ----
+
 ---- Create schema ----
 CREATE SCHEMA DASE_DE_BATOS
 GO
 ----
+
 ---- Create tablas y constraints (~200ms) ----
 CREATE TABLE DASE_DE_BATOS.PROVINCIAS (
 	ID decimal(18,
@@ -89,6 +95,7 @@ CREATE TABLE DASE_DE_BATOS.LOCALIDADES (
 0) not null,
 	CONSTRAINT FK_LOCALIDAD_PROVINCIA FOREIGN KEY (PROVINCIA_ID) REFERENCES DASE_DE_BATOS.PROVINCIAS(ID)
 );
+
 ---- Create indice ----
 CREATE INDEX IDX_LOCALIDADES_PROVINCIA_ID ON
 DASE_DE_BATOS.LOCALIDADES(PROVINCIA_ID);
@@ -104,6 +111,7 @@ CREATE TABLE DASE_DE_BATOS.SUCURSALES (
 0) not null,
 	CONSTRAINT FK_SUCURSAL_LOCALIDAD FOREIGN KEY (LOCALIDAD_ID) REFERENCES DASE_DE_BATOS.LOCALIDADES(ID)
 );
+
 ---- Create indice ----
 CREATE INDEX IDX_SUCURSALES_LOCALIDAD_ID ON
 DASE_DE_BATOS.SUCURSALES(LOCALIDAD_ID);
@@ -130,6 +138,7 @@ SUCURSAL_ID decimal(18,
 	CONSTRAINT FK_CAJA_TIPO FOREIGN KEY (TIPO_ID) REFERENCES DASE_DE_BATOS.CAJA_TIPOS(ID),
 	CONSTRAINT FK_CAJA_SUCURSAL FOREIGN KEY (SUCURSAL_ID) REFERENCES DASE_DE_BATOS.SUCURSALES(ID)
 );
+
 ---- Create indice ----
 CREATE INDEX IDX_CAJAS_TIPO_ID ON
 DASE_DE_BATOS.CAJAS(TIPO_ID);
@@ -151,6 +160,7 @@ CREATE TABLE DASE_DE_BATOS.EMPLEADOS (
 0) not null,
 	CONSTRAINT FK_EMPLEADO_SUCURSAL FOREIGN KEY (SUCURSAL_ID) REFERENCES DASE_DE_BATOS.SUCURSALES(ID)
 );
+
 ---- Create indice ----
 CREATE INDEX IDX_EMPLEADOS_SUCURSAL_ID ON
 DASE_DE_BATOS.EMPLEADOS(SUCURSAL_ID);
@@ -408,6 +418,7 @@ PAGO_ID),
 );
 ----
 --------
+
 -------- Migración --------
 ---- Create procedures ----
 CREATE PROCEDURE DASE_DE_BATOS.SP_PROVINCIAS AS
@@ -1277,6 +1288,7 @@ WHERE
 END
 GO
 ----
+
 ---- Execute procedures ----
 EXEC DASE_DE_BATOS.SP_PROVINCIAS
 GO
