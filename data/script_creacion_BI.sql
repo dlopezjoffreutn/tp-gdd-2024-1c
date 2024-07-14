@@ -402,8 +402,8 @@ CREATE TABLE DASE_DE_BATOS.BI_HECHOS_ITEMS_VENTA
 CREATE TABLE DASE_DE_BATOS.BI_HECHOS_ENVIOS
 (
     COSTO decimal(18, 2) not null,
-    TIEMPO_PROGRAMADO datetime not null,
-    TIEMPO_ENTREGA datetime not null,
+    CANTIDAD_ENVIOS decimal(18, 0) not null,
+    ENVIOS_A_TIEMPO decimal(18, 0) not null,
     SUCURSAL_ID decimal(18, 0) not null,
     LOCALIDAD_ID decimal(18, 0) not null,
     TIEMPO_ENTREGA_ID decimal(18, 0) not null,
@@ -464,10 +464,10 @@ BEGIN
         RANGO_ETARIO_EMPLEADO_ID,
         TURNO_ID
     )
-    SELECT v.SUBTOTAL,
-           v.TOTAL,
-           v.TOTAL_DESCUENTOS,
-           v.TOTAL_PROMOCIONES,
+    SELECT SUM(v.SUBTOTAL),
+           SUM(v.TOTAL),
+           SUM(v.TOTAL_DESCUENTOS),
+           SUM(v.TOTAL_PROMOCIONES),
            SUM(iv.CANTIDAD),
            dtc.ID,
            ds.ID,
@@ -514,11 +514,7 @@ BEGIN
                AND dpl.LOCALIDAD = l.NOMBRE
         JOIN DASE_DE_BATOS.EMPLEADOS e
             ON e.ID = v.EMPLEADO_ID
-    GROUP BY v.SUBTOTAL,
-             v.TOTAL,
-             v.TOTAL_DESCUENTOS,
-             v.TOTAL_PROMOCIONES,
-             dtc.ID,
+    GROUP BY dtc.ID,
              ds.ID,
              dpl.ID,
              v.FECHA_HORA,
@@ -536,8 +532,8 @@ BEGIN
         CATEGORIA_ID,
         FECHA_VENTA_ID
     )
-    SELECT iv.TOTAL,
-           iv.TOTAL_PROMOCIONES,
+    SELECT SUM(iv.TOTAL),
+           SUM(iv.TOTAL_PROMOCIONES),
            dcs.ID,
            (
                SELECT TOP 1
@@ -567,9 +563,7 @@ BEGIN
         JOIN DASE_DE_BATOS.BI_DIMENSION_CATEGORIA_SUBCATEGORIA dcs
             ON dcs.CATEGORIA = c.NOMBRE
                AND dcs.SUBCATEGORIA = sc.NOMBRE
-    GROUP BY iv.TOTAL,
-             iv.TOTAL_PROMOCIONES,
-             dcs.ID,
+    GROUP BY dcs.ID,
              v.FECHA_HORA
 END
 GO
@@ -580,43 +574,26 @@ BEGIN
     INSERT INTO DASE_DE_BATOS.BI_HECHOS_ENVIOS
     (
         COSTO,
-        TIEMPO_PROGRAMADO,
-        TIEMPO_ENTREGA,
+        CANTIDAD_ENVIOS,
+        ENVIOS_A_TIEMPO,
         SUCURSAL_ID,
         LOCALIDAD_ID,
         TIEMPO_ENTREGA_ID,
         RANGO_ETARIO_CLIENTE_ID
     )
-    SELECT ev.COSTO,
-           ev.FECHA_PROGRAMADA,
-           ev.FECHA_HORA_ENTREGA,
-           (
-               SELECT TOP 1
-                   ds.ID
-               FROM DASE_DE_BATOS.BI_DIMENSION_SUCURSAL ds
-               WHERE ds.SUCURSAL = s.NOMBRE
-           ),
-           (
-               SELECT TOP 1
-                   dpl.ID
-               FROM DASE_DE_BATOS.BI_DIMENSION_PROVINCIA_LOCALIDAD dpl
-               WHERE dpl.PROVINCIA = p.NOMBRE
-                     AND dpl.LOCALIDAD = l.NOMBRE
-           ),
-           (
-               SELECT TOP 1
-                   dt.ID
-               FROM DASE_DE_BATOS.BI_DIMENSION_TIEMPO dt
-               WHERE dt.MES = MONTH(ev.FECHA_HORA_ENTREGA)
-                     AND dt.CUATRIMESTRE = CEILING(MONTH(ev.FECHA_HORA_ENTREGA) / 4.0)
-                     AND dt.ANIO = YEAR(ev.FECHA_HORA_ENTREGA)
-           ),
-           (
-               SELECT TOP 1
-                   dre.ID
-               FROM DASE_DE_BATOS.BI_DIMENSION_RANGO_ETARIO dre
-               WHERE dre.RANGO = DASE_DE_BATOS.BI_FN_RANGO_ETARIO(c.FECHA_NACIMIENTO)
-           )
+    SELECT SUM(ev.COSTO),
+           COUNT(*),
+           SUM(
+                CASE
+                    WHEN CAST(ev.FECHA_HORA_ENTREGA AS DATE) <= CAST(ev.FECHA_PROGRAMADA AS DATE)
+                    THEN 1
+                    ELSE 0
+                END
+            ),
+           ds.ID,
+           dpl.ID,
+           dt.ID,
+           dre.ID
     FROM DASE_DE_BATOS.ENVIOS ev
         JOIN DASE_DE_BATOS.VENTAS v
             ON v.ID = ev.VENTA_ID
@@ -630,6 +607,20 @@ BEGIN
             ON l.ID = c.LOCALIDAD_ID
         JOIN DASE_DE_BATOS.PROVINCIAS p
             ON p.ID = l.PROVINCIA_ID
+        JOIN DASE_DE_BATOS.BI_DIMENSION_SUCURSAL ds
+            ON ds.SUCURSAL = s.NOMBRE
+        JOIN DASE_DE_BATOS.BI_DIMENSION_PROVINCIA_LOCALIDAD dpl
+            ON dpl.PROVINCIA = p.NOMBRE AND dpl.LOCALIDAD = l.NOMBRE
+        JOIN DASE_DE_BATOS.BI_DIMENSION_TIEMPO dt
+            ON dt.MES = MONTH(ev.FECHA_HORA_ENTREGA)
+               AND dt.CUATRIMESTRE = CEILING(MONTH(ev.FECHA_HORA_ENTREGA) / 4.0)
+               AND dt.ANIO = YEAR(ev.FECHA_HORA_ENTREGA)
+        JOIN DASE_DE_BATOS.BI_DIMENSION_RANGO_ETARIO dre
+            ON dre.RANGO = DASE_DE_BATOS.BI_FN_RANGO_ETARIO(c.FECHA_NACIMIENTO)
+    GROUP BY ds.ID,
+           dpl.ID,
+           dt.ID,
+           dre.ID
 END
 GO
 
@@ -692,8 +683,7 @@ BEGIN
             ON e.VENTA_ID = v.ID
         JOIN DASE_DE_BATOS.CLIENTES c
             ON c.ID = e.CLIENTE_ID
-    GROUP BY v.ID,
-             mp.NOMBRE,
+    GROUP BY mp.NOMBRE,
              p.FECHA_HORA,
              s.NOMBRE,
              c.FECHA_NACIMIENTO
@@ -834,13 +824,8 @@ GO
 CREATE VIEW DASE_DE_BATOS.BI_VIEW_PORCENTAJE_CUMPLIMIENTO_ENVIOS_A_TIEMPO_X_SUCURSAL_ANIO_MES
 AS
 SELECT CAST((
-			COUNT(
-				CASE
-					WHEN CAST(ev.TIEMPO_ENTREGA AS DATE) <= CAST(ev.TIEMPO_PROGRAMADO AS DATE)
-					THEN 1
-				END
-			) * 100 / COUNT(*)
-		) AS NVARCHAR(5)) + '%' as PORCENTAJE_CUMPLIMIENTO,
+            CAST(SUM(ev.ENVIOS_A_TIEMPO) AS FLOAT) / CAST(SUM(ev.CANTIDAD_ENVIOS) AS FLOAT) * 100
+        ) AS NVARCHAR(5)) + '%' AS PORCENTAJE_CUMPLIMIENTO,
        ds.SUCURSAL AS SUCURSAL,
        tv.MES AS MES,
        tv.ANIO AS AÑO
@@ -857,7 +842,7 @@ GO
 ---- 8. Cantidad de envíos por rango etario de clientes para cada cuatrimestre de cada año.
 CREATE VIEW DASE_DE_BATOS.BI_VIEW_CANTIDAD_ENVIOS_X_RANGO_ETARIO_CLIENTE_CUATRIMESTRE_ANIO
 AS
-SELECT COUNT(*) AS CANTIDAD_ENVIOS,
+SELECT SUM(ev.CANTIDAD_ENVIOS) AS CANTIDAD_ENVIOS,
        dre.RANGO AS RANGO_ETARIO_CLIENTE,
        dt.CUATRIMESTRE AS CUATRIMESTRE,
        dt.ANIO AS AÑO
