@@ -472,26 +472,9 @@ BEGIN
            dtc.ID,
            ds.ID,
            dpl.ID,
-           (
-               SELECT TOP 1
-                   dt.ID
-               FROM DASE_DE_BATOS.BI_DIMENSION_TIEMPO dt
-               WHERE dt.MES = MONTH(v.FECHA_HORA)
-                     AND dt.CUATRIMESTRE = CEILING(MONTH(v.FECHA_HORA) / 4.0)
-                     AND dt.ANIO = YEAR(v.FECHA_HORA)
-           ),
-           (
-               SELECT TOP 1
-                   dre.ID
-               FROM DASE_DE_BATOS.BI_DIMENSION_RANGO_ETARIO dre
-               WHERE dre.RANGO = DASE_DE_BATOS.BI_FN_RANGO_ETARIO(e.FECHA_NACIMIENTO)
-           ),
-           (
-               SELECT TOP 1
-                   dtu.ID
-               FROM DASE_DE_BATOS.BI_DIMENSION_TURNO dtu
-               WHERE dtu.TURNO = DASE_DE_BATOS.BI_FN_TURNO(v.FECHA_HORA)
-           )
+           dt.ID,
+           dre.ID,
+           dtu.ID
     FROM DASE_DE_BATOS.VENTAS v
         JOIN DASE_DE_BATOS.ITEMS_VENTA iv
             ON iv.VENTA_ID = v.ID
@@ -514,11 +497,20 @@ BEGIN
                AND dpl.LOCALIDAD = l.NOMBRE
         JOIN DASE_DE_BATOS.EMPLEADOS e
             ON e.ID = v.EMPLEADO_ID
+        JOIN DASE_DE_BATOS.BI_DIMENSION_RANGO_ETARIO dre
+            ON dre.RANGO = DASE_DE_BATOS.BI_FN_RANGO_ETARIO(e.FECHA_NACIMIENTO)
+        JOIN DASE_DE_BATOS.BI_DIMENSION_TIEMPO dt
+            ON dt.MES = MONTH(v.FECHA_HORA)
+            AND dt.CUATRIMESTRE = CEILING(MONTH(v.FECHA_HORA) / 4.0)
+            AND dt.ANIO = YEAR(v.FECHA_HORA)
+        JOIN DASE_DE_BATOS.BI_DIMENSION_TURNO dtu
+            ON dtu.TURNO = DASE_DE_BATOS.BI_FN_TURNO(v.FECHA_HORA)
     GROUP BY dtc.ID,
-             ds.ID,
-             dpl.ID,
-             v.FECHA_HORA,
-             e.FECHA_NACIMIENTO
+            ds.ID,
+            dpl.ID,
+            dt.ID,
+            dtu.ID,
+            dre.ID
 END
 GO
 
@@ -535,14 +527,7 @@ BEGIN
     SELECT SUM(iv.TOTAL),
            SUM(iv.TOTAL_PROMOCIONES),
            dcs.ID,
-           (
-               SELECT TOP 1
-                   dt.ID
-               FROM DASE_DE_BATOS.BI_DIMENSION_TIEMPO dt
-               WHERE dt.MES = MONTH(v.FECHA_HORA)
-                     AND dt.CUATRIMESTRE = CEILING(MONTH(v.FECHA_HORA) / 4.0)
-                     AND dt.ANIO = YEAR(v.FECHA_HORA)
-           )
+           dt.ID
     FROM DASE_DE_BATOS.ITEMS_VENTA iv
         JOIN DASE_DE_BATOS.VENTAS v
             ON v.ID = iv.VENTA_ID
@@ -563,8 +548,12 @@ BEGIN
         JOIN DASE_DE_BATOS.BI_DIMENSION_CATEGORIA_SUBCATEGORIA dcs
             ON dcs.CATEGORIA = c.NOMBRE
                AND dcs.SUBCATEGORIA = sc.NOMBRE
+        JOIN DASE_DE_BATOS.BI_DIMENSION_TIEMPO dt
+            ON dt.MES = MONTH(v.FECHA_HORA)
+                AND dt.CUATRIMESTRE = CEILING(MONTH(v.FECHA_HORA) / 4.0)
+                AND dt.ANIO = YEAR(v.FECHA_HORA)
     GROUP BY dcs.ID,
-             v.FECHA_HORA
+             dt.ID
 END
 GO
 
@@ -646,26 +635,14 @@ BEGIN
                FROM DASE_DE_BATOS.BI_DIMENSION_MEDIO_PAGO dmp
                WHERE dmp.MEDIO_PAGO = mp.NOMBRE
            ),
-           (
-               SELECT TOP 1
-                   dt.ID
-               FROM DASE_DE_BATOS.BI_DIMENSION_TIEMPO dt
-               WHERE dt.MES = MONTH(p.FECHA_HORA)
-                     AND dt.CUATRIMESTRE = CEILING(MONTH(p.FECHA_HORA) / 4.0)
-                     AND dt.ANIO = YEAR(p.FECHA_HORA)
-           ),
+           dt.ID,
            (
                SELECT TOP 1
                    ds.ID
                FROM DASE_DE_BATOS.BI_DIMENSION_SUCURSAL ds
                WHERE ds.SUCURSAL = s.NOMBRE
            ),
-           (
-               SELECT TOP 1
-                   dre.ID
-               FROM DASE_DE_BATOS.BI_DIMENSION_RANGO_ETARIO dre
-               WHERE dre.RANGO = DASE_DE_BATOS.BI_FN_RANGO_ETARIO(c.FECHA_NACIMIENTO)
-           )
+           dre.ID
     FROM DASE_DE_BATOS.PAGOS p
         JOIN DASE_DE_BATOS.VENTAS v
             ON v.ID = p.VENTA_ID
@@ -683,10 +660,16 @@ BEGIN
             ON e.VENTA_ID = v.ID
         JOIN DASE_DE_BATOS.CLIENTES c
             ON c.ID = e.CLIENTE_ID
+        JOIN DASE_DE_BATOS.BI_DIMENSION_RANGO_ETARIO dre
+            ON dre.RANGO = DASE_DE_BATOS.BI_FN_RANGO_ETARIO(c.FECHA_NACIMIENTO)
+        JOIN DASE_DE_BATOS.BI_DIMENSION_TIEMPO dt
+            ON dt.MES = MONTH(p.FECHA_HORA)
+            AND dt.CUATRIMESTRE = CEILING(MONTH(p.FECHA_HORA) / 4.0)
+            AND dt.ANIO = YEAR(p.FECHA_HORA)
     GROUP BY mp.NOMBRE,
-             p.FECHA_HORA,
+             dt.ID,
              s.NOMBRE,
-             c.FECHA_NACIMIENTO
+             dre.ID
 END
 GO
 ----
